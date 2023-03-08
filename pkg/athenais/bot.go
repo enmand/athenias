@@ -33,6 +33,7 @@ func WithPlugins(plugins ...Plugin) Option {
 // Bot represents the instance of the bot
 type Bot struct {
 	mc *matrix.Client
+	r  *Router
 
 	log *zerolog.Logger
 }
@@ -46,12 +47,14 @@ func New(mc *matrix.Client, opts ...Option) *Bot {
 
 	b := &Bot{
 		mc: mc,
+		r:  NewRouter(),
 
 		log: o.log,
 	}
 
 	for _, plug := range o.plugins {
-		plug.Init(b)
+		l := o.log.With().Str("plugin", plug.Name()).Logger()
+		plug.Init(b, &l)
 	}
 
 	return b
@@ -64,12 +67,16 @@ func (b *Bot) ID() id.UserID {
 
 // Run runs the bot
 func (b *Bot) Run(ctx context.Context) error {
+	b.mc.OnEvent(func(_ mautrix.EventSource, evt *event.Event) {
+		b.r.Handle(evt)
+	})
+
 	return b.mc.Start(ctx)
 }
 
-// OnEvent registers a handler for an event
-func (b *Bot) OnEvent(evt event.Type, handler mautrix.EventHandler) {
-	b.mc.OnEvent(evt, handler)
+// Route registers a route handler
+func (b *Bot) Route(route Route) {
+	b.r.AddRoute(route)
 }
 
 // SendText sends a text message to a room

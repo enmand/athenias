@@ -61,6 +61,11 @@ func NewClient(apiKey string, opts ...Option) *Client {
 }
 
 func (c *Client) Prompt(ctx context.Context, prompt string) (string, error) {
+	err := c.moderate(ctx, prompt)
+	if err != nil {
+		return "", err
+	}
+
 	resp, err := c.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: 100,
@@ -83,6 +88,11 @@ func (c *Client) Prompt(ctx context.Context, prompt string) (string, error) {
 }
 
 func (c *Client) PromptConversationContext(ctx context.Context, context, prompt string) (string, error) {
+	err := c.moderate(ctx, prompt)
+	if err != nil {
+		return "", err
+	}
+
 	resp, err := c.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: 100,
@@ -105,4 +115,21 @@ func (c *Client) PromptConversationContext(ctx context.Context, context, prompt 
 	}
 
 	return resp.Choices[0].Message.Content, err
+}
+
+func (c *Client) moderate(ctx context.Context, input string) error {
+	mods, err := c.Moderations(ctx, openai.ModerationRequest{
+		Input: input,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, mod := range mods.Results {
+		if mod.Flagged {
+			return fmt.Errorf("moderation flagged input")
+		}
+	}
+
+	return nil
 }

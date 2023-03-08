@@ -6,10 +6,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/unerror/athenais/internal/athenais"
 	"github.com/unerror/athenais/internal/db"
 	"github.com/unerror/athenais/internal/matrix"
-	"github.com/unerror/athenais/internal/openai"
+	"github.com/unerror/athenais/pkg/athenais"
+	"github.com/unerror/athenais/plugins/openai"
 	"github.com/urfave/cli/v2"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/sqlstatestore"
@@ -102,7 +102,7 @@ func main() {
 				openai.WithPrompt(c.String("prompt")),
 			)
 
-			b := athenais.New(mc, athenais.WithLogger(&log), athenais.WithPlugins(openai.NewPlugin(oc, "", &log)))
+			b := athenais.New(mc, athenais.WithLogger(&log), athenais.WithPlugins(openai.NewPlugin(oc, "")))
 			if err := b.Run(c.Context); err != nil {
 				return err
 			}

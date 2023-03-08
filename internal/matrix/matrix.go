@@ -127,7 +127,16 @@ func NewClient(homeserverURL, username, password string, opts ...Option) (*Clien
 	return c, nil
 }
 
-func (c *Client) OnEvent(evtType event.Type, f mautrix.EventHandler) {
+func (c *Client) Channels() []id.RoomID {
+	return c.opts.Channels
+}
+
+func (c *Client) OnEvent(f mautrix.EventHandler) {
+	s := c.Syncer.(mautrix.ExtensibleSyncer)
+	s.OnEvent(f)
+}
+
+func (c *Client) OnEventType(evtType event.Type, f mautrix.EventHandler) {
 	s := c.Syncer.(mautrix.ExtensibleSyncer)
 	s.OnEventType(evtType, f)
 }
