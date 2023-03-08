@@ -3,7 +3,9 @@ package matrix
 import (
 	"context"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto/cryptohelper"
@@ -25,7 +27,7 @@ type options struct {
 	Log *zerolog.Logger
 
 	// channels are the channels to join on startup
-	Channels []id.RoomID
+	Channels mapset.Set[string]
 
 	// SyncStore is the store to use for the client
 	SyncStore mautrix.SyncStore
@@ -51,7 +53,7 @@ func WithLogger(log *zerolog.Logger) Option {
 func WithJoinRooms(channels []string) Option {
 	return func(o *options) {
 		for _, ch := range channels {
-			o.Channels = append(o.Channels, id.RoomID(ch))
+			o.Channels.Add(ch)
 		}
 	}
 }
@@ -79,7 +81,9 @@ func WithDatabaseDSN(dsn string) Option {
 
 // NewClient creates a new Matrix client
 func NewClient(homeserverURL, username, password string, opts ...Option) (*Client, error) {
-	o := &options{}
+	o := &options{
+		Channels: mapset.NewSet[string](),
+	}
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -127,8 +131,8 @@ func NewClient(homeserverURL, username, password string, opts ...Option) (*Clien
 	return c, nil
 }
 
-func (c *Client) Channels() []id.RoomID {
-	return c.opts.Channels
+func (c *Client) Channels() []string {
+	return c.opts.Channels.ToSlice()
 }
 
 func (c *Client) OnEvent(f mautrix.EventHandler) {
@@ -146,6 +150,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 	var errch chan error
 	go func(errch chan error) error {
+		c.SyncPresence = event.PresenceOnline
 		err := c.SyncWithContext(ctx)
 		if err != nil {
 			errch <- err
@@ -153,15 +158,51 @@ func (c *Client) Start(ctx context.Context) error {
 		return nil
 	}(errch)
 
-	for _, ch := range c.opts.Channels {
-		c.JoinRoomByID(ch)
+	if err := c.ensureRooms(); err != nil {
+		cancel(err)
+		return errors.Wrap(err, "failed to ensure rooms")
 	}
 
 	for {
 		select {
 		case err := <-errch:
 			cancel(err)
-			return err
+			return errors.Wrap(err, "failed to sync")
 		}
 	}
+}
+
+func (c *Client) ensureRooms() error {
+	resp, err := c.JoinedRooms()
+	if err != nil {
+		return err
+	}
+
+	joinedRooms := mapset.NewSet[string]()
+	for _, room := range resp.JoinedRooms {
+		joinedRooms.Add(room.String())
+	}
+
+	diff := joinedRooms.Difference(c.opts.Channels)
+	if diff.Cardinality() > 0 {
+		for _, ch := range diff.ToSlice() {
+			c.log.Info().Str("channel", ch).Msg("leaving room")
+			_, err := c.LeaveRoom(id.RoomID(ch))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, ch := range c.opts.Channels.ToSlice() {
+		if !joinedRooms.Contains(ch) {
+			c.log.Info().Str("channel", ch).Msg("joining room")
+			_, err := c.JoinRoom(ch, "", nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
