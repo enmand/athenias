@@ -47,6 +47,12 @@ func main() {
 				EnvVars: []string{"MATRIX_ROOMS"},
 			},
 			&cli.StringFlag{
+				Name:    "crypto-pickle-key",
+				Usage:   "The crypto pickle key to use for the client crypto helper.",
+				Value:   "update-me",
+				EnvVars: []string{"CRYPTO_PICKLE_KEY"},
+			},
+			&cli.StringFlag{
 				Name:    "database-dsn",
 				Usage:   "Database DSN",
 				Value:   "athenias.sqlite3",
@@ -68,29 +74,31 @@ func main() {
 				return errors.Wrap(err, "failed to open database")
 			}
 
-			db, err := dbutil.NewWithDB(conn.DB, db.Driver)
+			dbu, err := dbutil.NewWithDB(conn.DB, db.Driver)
 			if err != nil {
 				return err
 			}
+			_ = dbu
 
+			// account data store event type
+			adsevt := matrix.NewAccountDataStoreEventType(id.UserID(c.String("matrix-username")))
 			// start the matrix client
 			mc, err := matrix.NewClient(
 				c.String("matrix-homeserver"),
 				c.String("matrix-username"),
 				c.String("matrix-password"),
 				matrix.WithJoinRooms(c.StringSlice("matrix-rooms")),
-				matrix.WithLogger(&log),
-				matrix.WithSyncStore(matrix.NewSQLLiteStore(conn.DB)),
-				matrix.WithStateStore(func() mautrix.StateStore {
-					s := sqlstatestore.NewSQLStateStore(db, dbutil.ZeroLogger(log))
-
-					if err := s.Upgrade(); err != nil {
-						panic(err)
-					}
-
-					return s
-				}()),
-				matrix.WithDatabaseDSN(c.String("database-dsn")),
+				matrix.WithLogger(log),
+				matrix.WithSyncStore(
+					matrix.WithEventType(adsevt),
+				),
+				matrix.WithPickleKey(c.String("matrix-username")),
+				matrix.WithStateStore(
+					matrix.WithSQLiteStateStore(dbu),
+				),
+				matrix.WithCryptoHelperStore(
+					matrix.WithSQLCryptoStore(dbu),
+				),
 			)
 			if err != nil {
 				return err
