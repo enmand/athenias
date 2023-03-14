@@ -2,7 +2,7 @@ package athenais
 
 import "maunium.net/go/mautrix/event"
 
-type RouteHandler func(*event.Event)
+type RouteHandler func(*event.Event) error
 
 // Route defines a plugin route handler, based on event type and room ID
 type Route struct {
@@ -46,8 +46,12 @@ func (r *Router) GetRoutes() []Route {
 	return r.routes
 }
 
-func (r *Router) Handle(evt *event.Event) {
+func (r *Router) Handle(evt *event.Event) error {
 	for _, route := range r.GetRoutesByEvent(evt.Type) {
-		route.Handler(evt)
+		if err := route.Handler(evt); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }

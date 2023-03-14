@@ -67,8 +67,25 @@ func (b *Bot) ID() id.UserID {
 
 // Run runs the bot
 func (b *Bot) Run(ctx context.Context) error {
-	b.mc.OnEvent(func(_ mautrix.EventSource, evt *event.Event) {
-		b.r.Handle(evt)
+	b.mc.OnEvent(func(src mautrix.EventSource, evt *event.Event) {
+		b.log.Debug().
+			Interface("event", evt).
+			Stringer("src", src).
+			Msg("Received event")
+
+		if evt.Sender == b.mc.UserID {
+			return
+		}
+
+		if err := b.r.Handle(evt); err != nil {
+			b.log.Error().Err(err).Msg("Failed to handle event")
+		}
+
+		if evt.ID != "" && evt.RoomID != "" {
+			if err := b.mc.MarkRead(evt.RoomID, evt.ID); err != nil {
+				b.log.Error().Err(err).Msg("Failed to mark read")
+			}
+		}
 	})
 
 	return b.mc.Start(ctx)
