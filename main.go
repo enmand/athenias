@@ -64,9 +64,28 @@ func main() {
 				Value:   openai.DefaultPrompt,
 				EnvVars: []string{"OPENAI_PROMPT"},
 			},
+			&cli.IntFlag{
+				Name:    "log-level",
+				Usage:   "Log level. 0 = Debug, 1 = Info, 2 = Warn, 3 = Error, 4 = Fatal, 5 = Panic",
+				Value:   int(zerolog.InfoLevel),
+				EnvVars: []string{"LOG_LEVEL"},
+			},
+			&cli.BoolFlag{
+				Name:    "log-pretty",
+				Value:   false,
+				Usage:   "Log in pretty format",
+				EnvVars: []string{"LOG_PRETTY"},
+			},
 		},
 		Action: func(c *cli.Context) error {
-			log := zerolog.New(os.Stdout).With().Timestamp().Logger()
+			log := zerolog.New(os.Stdout).With().
+				Timestamp().
+				Logger().
+				Level(zerolog.Level(c.Int("log-level")))
+
+			if c.Bool("log-pretty") {
+				log = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
+			}
 
 			// connect to the database
 			conn, err := db.Open(c.String("database-dsn"))
@@ -134,12 +153,24 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					oc := openai.NewClient(c.String("open-ai-key"))
-					prompt, err := oc.Prompt(c.Context, c.String("prompt"))
+					log := zerolog.New(os.Stdout).With().
+						Timestamp().
+						Logger().
+						Level(zerolog.Level(c.Int("log-level")))
+
+					oc := openai.NewClient(c.String("open-ai-key"),
+						openai.WithLogger(&log),
+						openai.WithPrompt(c.String("prompt")),
+					)
+
+					response, err := oc.Prompt(c.Context, c.Args().First())
+
 					if err != nil {
 						return err
 					}
-					log.Println(prompt)
+
+					log.Print(response)
+
 					return nil
 				},
 			},
