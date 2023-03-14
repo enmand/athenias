@@ -150,8 +150,8 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "prompt",
-						Usage:   "Prompt to generate a prompt for",
-						EnvVars: []string{"PROMPT"},
+						Usage:   "System prompt to generate a prompt for",
+						EnvVars: []string{"OPENAI_PROMPT"},
 					},
 					&cli.StringFlag{
 						Name:    "open-ai-key",
