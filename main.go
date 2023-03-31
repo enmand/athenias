@@ -22,9 +22,26 @@ func main() {
 		Usage: "Athenias is a Matrix bot for interacting with OpenAI",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "open-ai-key",
+				Name:    "eventstore-url",
+				Usage:   "The URL to the event store to use",
+				EnvVars: []string{"EVENTSTORE_URL"},
+			},
+			&cli.StringFlag{
+				Name:    "openai-key",
 				Usage:   "OpenAI API key",
 				EnvVars: []string{"OPEN_AI_KEY"},
+			},
+			&cli.StringFlag{
+				Name:    "openai-prompt",
+				Usage:   "The prompt to use for the system chat",
+				Value:   openai.DefaultPrompt,
+				EnvVars: []string{"OPENAI_PROMPT"},
+			},
+			&cli.IntFlag{
+				Name:    "openai-chance",
+				Usage:   "The chance to respond to a message. 0 = never, 100 = always",
+				Value:   openai.DefaultChance,
+				EnvVars: []string{"OPENAI_CHANCE"},
 			},
 			&cli.StringFlag{
 				Name:    "matrix-homeserver",
@@ -57,12 +74,6 @@ func main() {
 				Usage:   "Database DSN",
 				Value:   "athenias.sqlite3",
 				EnvVars: []string{"DATABASE_DSN"},
-			},
-			&cli.StringFlag{
-				Name:    "prompt",
-				Usage:   "The prompt to use for the system chat",
-				Value:   openai.DefaultPrompt,
-				EnvVars: []string{"OPENAI_PROMPT"},
 			},
 			&cli.IntFlag{
 				Name:    "log-level",
@@ -97,7 +108,6 @@ func main() {
 			if err != nil {
 				return err
 			}
-			_ = dbu
 
 			// account data store event type
 			adsevt := matrix.NewAccountDataStoreEventType(id.UserID(c.String("matrix-username")))
@@ -123,17 +133,15 @@ func main() {
 				return err
 			}
 
-			oc := openai.NewClient(
-				c.String("open-ai-key"),
-				openai.WithLogger(&log),
-				openai.WithPrompt(c.String("prompt")),
-			)
-
 			b := athenais.New(
 				mc,
 				athenais.WithLogger(&log),
 				athenais.WithPlugins(
-					openai.NewPlugin(oc, ""),
+					openai.NewPlugin(openai.Configuration{
+						Prompt: c.String("openai-prompt"),
+						Chance: c.Int("openai-chance"),
+						APIKey: c.String("openai-key"),
+					}),
 					sayhi.NewPlugin(),
 				),
 			)
@@ -149,12 +157,12 @@ func main() {
 				Usage: "Generate a prompt for the given prompt",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:    "prompt",
+						Name:    "openai-prompt",
 						Usage:   "System prompt to generate a prompt for",
 						EnvVars: []string{"OPENAI_PROMPT"},
 					},
 					&cli.StringFlag{
-						Name:    "open-ai-key",
+						Name:    "openai-key",
 						Usage:   "OpenAI API key",
 						EnvVars: []string{"OPEN_AI_KEY"},
 					},
@@ -165,9 +173,9 @@ func main() {
 						Logger().
 						Level(zerolog.Level(c.Int("log-level")))
 
-					oc := openai.NewClient(c.String("open-ai-key"),
+					oc := openai.NewClient(c.String("openai-key"),
 						openai.WithLogger(&log),
-						openai.WithPrompt(c.String("prompt")),
+						openai.WithPrompt(c.String("openai-prompt")),
 					)
 
 					response, err := oc.Prompt(c.Context, c.Args().First())

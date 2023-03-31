@@ -3,6 +3,7 @@ package sayhi
 import (
 	"github.com/rs/zerolog"
 	"github.com/unerror/athenais/pkg/athenais"
+	"maunium.net/go/mautrix/event"
 )
 
 type Plugin struct {
@@ -30,22 +31,22 @@ func (p *Plugin) Init(bot *athenais.Bot, log *zerolog.Logger) {
 
 	bot.Route(
 		athenais.Route{
-			//	Handler:   p.handleMessage,
-			//	EventType: event.EventMessage,
+			Handler:   p.handleMessage,
+			EventType: event.EventMessage,
 		},
 	)
 }
 
-func (p *Plugin) handleMessage( /*evt *event.Event*/ ) error {
-	//msg := evt.Content.AsMessage()
+func (p *Plugin) handleMessage(evt *event.Event) error {
+	msg := evt.Content.AsMessage()
 
-	//p.log.Debug().Str("msg", msg.Body).Msg("Received message")
+	p.log.Debug().Str("msg", msg.Body).Msg("Received message")
 
-	// if msg.MsgType == event.MsgText {
-	// 	if msg.Body == "!say" {
-	// 		p.bot.SendText(evt.RoomID, "Hello!")
-	// 	}
-	// }
+	if msg.MsgType == event.MsgText {
+		if msg.Body == "!say" {
+			p.bot.SendText(evt.RoomID, "Hello!")
+		}
+	}
 
 	return nil
 }
