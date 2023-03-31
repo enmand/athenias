@@ -9,7 +9,7 @@ require (
 	github.com/rs/zerolog v1.29.0
 	github.com/sashabaranov/go-openai v1.5.0
 	github.com/urfave/cli/v2 v2.25.0
-	maunium.net/go/mautrix v0.15.0-beta.2
+	maunium.net/go/mautrix v0.15.0
 )
 
 require (
