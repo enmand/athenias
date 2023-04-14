@@ -6,7 +6,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.29.0
+	github.com/rs/zerolog v1.29.1
 	github.com/sashabaranov/go-openai v1.5.0
 	github.com/urfave/cli/v2 v2.25.1
 	maunium.net/go/mautrix v0.15.0
